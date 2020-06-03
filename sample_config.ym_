@@ -10,8 +10,7 @@ mqtt:
     user: 
     passwd: 
     topic_prefix: /aircon
-    discovery: true
-    discovery_prefix: homeassistant
+    auto_discovery_topic: homeassistant
 
 ##Devices
 devices:
