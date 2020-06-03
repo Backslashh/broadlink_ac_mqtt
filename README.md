@@ -6,9 +6,12 @@ uses Pahoo MQTT so run :
 ```
 pip install paho-mqtt
 ```
+1. copy sample_config.ym_ to config.yml
+2. Edit config to match your enviroment
+3. run ./monitor.py
 
-simply run monitor.py , will discover all aircons and publish to specified MQTT server
-errors logs to file error.log
+If you lazy and just want to copy and paste your devices, use the -S option and discovered devicesconfig will be printed to screen for copy/paste
+
 
 command line arguments: 
 
@@ -43,5 +46,18 @@ Dump all discovered devices so one can copy paste
 to set values just publish to /aircon/mac_address/option/value/set  new_value  :
 ```
 /aircon/b4430dce73f1/temp/set 20
+```
+
+*** Now MQTT autodiscovery workes for HomeAsssitant  (https://www.home-assistant.io/docs/mqtt/discovery/)
+
+Enable MQTT autodisocvery:
+
+Edit config.yml and add below if not there. If already there, then make sure prefix matches configuration.yml file settings (in HA)
+
+```
+mqtt:
+  discovery: true
+  discovery_prefix: homeassistant
+  
 ```
 
