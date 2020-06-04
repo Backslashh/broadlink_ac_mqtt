@@ -34,6 +34,4 @@ RUN \
 # copy local files
 COPY root/ /
 
-CMD [ "python", "./monitor.py" ]
-
 VOLUME /config
