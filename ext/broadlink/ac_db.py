@@ -10,6 +10,8 @@ import threading
 import parser
 import struct
 
+version = "1.0.1"
+
 def gendevice(devtype , host, mac,name=None, cloud=None):
   #print format(devtype,'02x')
   ##We only care about 1 device type...
@@ -81,6 +83,8 @@ def discover(timeout=None, local_ip_address=None):
     mac = mac[::-1]  ##Flip correct
     devtype = responsepacket[0x34] | responsepacket[0x35] << 8
     name = responsepacket[0x40:].split(b'\x00')[0].decode('utf-8')
+    if not name:
+		name = mac
     cloud = bool(responsepacket[-1])
     cs.close()
     return gendevice(devtype, host, mac,name=name,cloud=cloud)
@@ -101,6 +105,9 @@ def discover(timeout=None, local_ip_address=None):
       mac = responsepacket[0x3a:0x40]
       mac = mac[::-1] ##flip Correct
       name = responsepacket[0x40:].split(b'\x00')[0].decode('utf-8')      
+      if not name:
+		name = mac
+	
       cloud = bool(responsepacket[-1])
 	  
       dev = gendevice(devtype, host, mac,name=name,cloud=cloud)

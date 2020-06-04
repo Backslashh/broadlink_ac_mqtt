@@ -22,7 +22,7 @@ pid_last_update = 0
 
 
 logger = logging.getLogger(__name__)
-softwareversion = 1.0
+softwareversion = "1.0.6"
 debug = False
 
  
@@ -134,18 +134,43 @@ class AcToMqtt:
 			if self.config["daemon_mode"] != True:
 				break
 			##Set last update 
-			
-	def publish_mqtt_auto_discovery(self,devices):
-		if 	devices == [] or devices == None:
-			print "No devices defined";
-			logger.error("No Devices defined, either enable discovery or add them to config");
-			sys.exit()
 				
+	def dump_homeassistant_config_from_devices(self,devices):
+	
+		
+		if devices == {}:
+			print "No devices defined"
+			sys.exit()
+		
+		devices_array = self.make_devices_array_from_devices(devices)
+		if devices_array ==  {}:
+			print "something went wrong, no devices found"
+			sys.exit();
+			
+		print "*********** start copy below ****************"		 
+		a = []
+		for key in devices_array:
+			##Echo					
+			device = devices_array[key]
+			device['platform'] = 'mqtt'			
+			a.append(device)
+		print yaml.dump({'climate':a})
+		print "**************** Start copy here ****************"
+		
+	def make_devices_array_from_devices(self,devices):
+		
+		devices_array = {}
+		
 		for device in devices.values():
 			topic = self.config["mqtt_auto_discovery_topic"]+"/climate/"+device.status["macaddress"]+"/config"
-			
-			json_device = { 
-				"name":device.name.encode('ascii','ignore')
+			if not device.name :
+				name = device.status["macaddress"]
+			else:
+				name = device.name.encode('ascii','ignore') 
+				
+				
+			device_array = { 
+				"name": name
 				#,"power_command_topic" : self.config["mqtt_topic_prefix"]+  device.status["macaddress"]+"/power/set"
 				,"mode_command_topic" : self.config["mqtt_topic_prefix"]+  device.status["macaddress"]+"/mode_homeassistant/set"
 				,"temperature_command_topic" : self.config["mqtt_topic_prefix"]  + device.status["macaddress"]+"/temp/set"
@@ -157,13 +182,34 @@ class AcToMqtt:
 				,"temperature_state_topic" : self.config["mqtt_topic_prefix"]  + device.status["macaddress"]+"/temp/value"	
 				,"fan_mode_state_topic" : self.config["mqtt_topic_prefix"]  + device.status["macaddress"]+"/fanspeed_homeassistant/value"	
 				,"fan_modes": ["Auto","Low","Medium", "High"]
-				,"modes": ["off","cool","heat","fan_only","dry"]
+				,"modes": ['off',"cool","heat","fan_only","dry"]
 				,"max_temp":32.0
 				,"min_temp":16.0
 				,"precision": 0.5
 			}
 			
-			self._publish(topic,json.dumps(json_device))
+			devices_array[device.status["macaddress"]] = device_array
+			
+		return devices_array
+	
+	def publish_mqtt_auto_discovery(self,devices):
+		if 	devices == [] or devices == None:
+			print "No devices defined";
+			logger.error("No Devices defined, either enable discovery or add them to config");
+			sys.exit()
+		
+		##Make an array
+		devices_array = self.make_devices_array_from_devices(devices)
+		if devices_array == {}:
+			print "something went wrong, no devices found"
+			sys.exit();
+		
+		
+		for key in devices_array:
+			device = devices_array[key]			
+			topic = self.config["mqtt_auto_discovery_topic"]+"/climate/"+key+"/config"
+			##Publish
+			self._publish(topic,json.dumps(device))
 			
 		 
 		#sys.exit();	
@@ -359,8 +405,8 @@ class AcToMqtt:
 #*****************************************************************************************************
 #*****************************************  Get going methods ************************************************
 
-def discover_and_dump_for_config():
-	actomqtt = AcToMqtt();
+def discover_and_dump_for_config(config):
+	actomqtt = AcToMqtt(config);
 	devices = actomqtt.discover();
 	yaml_devices = []
 	if devices == {}:
@@ -471,25 +517,34 @@ def main():
 				
         # Argument parsing
 		parser = argparse.ArgumentParser(		
-			description='Duhnham Bush v%s: Mqtt publisher of Duhnham Bush on the Pi.' % softwareversion			
+			description='Aircon To MQTT v%s : Mqtt publisher of Duhnham Bush on the Pi.' % softwareversion			
 		)
 
-		parser.add_argument("-d", "--debug", help="set logging level to debug",action="store_true",default=False)
-		parser.add_argument("-s", "--discover", help="Discover devices",action="store_true",default=False)
-		parser.add_argument("-S", "--discoverdump", help="Discover devices and dump config",action="store_true",default=False)
-		parser.add_argument("-b", "--background", help="Run in background",action="store_true",default=False)
 		
+		
+		
+		
+		
+		##HomeAssistant stuff
+		parser.add_argument("-Hd", "--dumphaconfig",help="Dump the devices as a HA manual config entry",action="store_true",default=False)
+		parser.add_argument("-Hat", "--mqtt_auto_discovery_topic", help="If specified, will Send the MQTT autodiscovery config for all devices to topic")
+		parser.add_argument("-b", "--background", help="Run in background",action="store_true",default=False)
+		##Config helpers
+		parser.add_argument("-S", "--discoverdump", help="Discover devices and dump config",action="store_true",default=False)
 		
 		#parser.add_argument("-dh", "--devicehost", help='Aircon Host IP, Default: %s ' % ac_host)
 		#parser.add_argument("-dm", "--devicemac", help="Ac Mac Address, Default:  %s" % ac_mac)
-		
+		##MQTT stuff
 		parser.add_argument("-ms", "--mqttserver", help='Mqtt Server, Default:')
 		parser.add_argument("-mp", "--mqttport", help="Mqtt Port" )
 		parser.add_argument("-mU", "--mqttuser", help="Mqtt User" )
 		parser.add_argument("-mP", "--mqttpassword", help="Mqtt Password" )
-		parser.add_argument("-Ma", "--mqtt_auto_discovery_topic", help="If specified, will Send the MQTT autodiscovery config for all devices to topic")
-		parser.add_argument("-P", "--printconfig", help="Print config ",action="store_true")		
-		parser.add_argument("-w", "--writeconfig", help="Write to config",action="store_true")
+		
+		##Generic
+		parser.add_argument("-s", "--discover", help="Discover devices",action="store_true",default=False)
+		parser.add_argument("-d", "--debug", help="set logging level to debug",action="store_true",default=False)
+		parser.add_argument("-v", "--version", help="Print Verions",action="store_true")
+		
 		
 		
 		args = parser.parse_args()
@@ -516,6 +571,11 @@ def main():
 		##Apply the config, then if arguments, override the config values with args
 		config = read_config();
 		
+		##Print verions
+		if args.version:
+			print "Monitor Version: %s, Class version:%s" % (softwareversion,broadlink.version)
+			sys.exit();
+		
 		##Mqtt Host
 		if args.mqttserver:
 			config["mqtt_host"] = args.mqttserver
@@ -541,17 +601,13 @@ def main():
 			config["self_discovery"] = True			
 	 
 		if args.discoverdump:
-			discover_and_dump_for_config()
+			discover_and_dump_for_config(config)
 			
 		##Deamon Mode
 		if args.background:
 			config["daemon_mode"] = True
 		
-		##Dump config
-		if args.printconfig:	
-			print config
-			sys.exit() 		
-		
+	 
 		
 		##Make sure not already running		
 		stop_if_already_running()		
@@ -573,7 +629,10 @@ def main():
 			else:
 				devices = actomqtt.make_device_objects(config['devices'])
 			
-
+			if args.dumphaconfig:
+				actomqtt.dump_homeassistant_config_from_devices(devices)			
+				sys.exit();
+				
  			##Publish mqtt auto discovery if topic  set
 			if config["mqtt_auto_discovery_topic"]:
 				actomqtt.publish_mqtt_auto_discovery(devices)			
